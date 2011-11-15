@@ -114,4 +114,18 @@ set( ww_SRCS
 )
 
 add_executable(ww ${ww_SRCS})
-target_link_libraries(ww glib-2.0 gobject-2.0 gnt ncurses panel kvm)
+
+if( ${CMAKE_SYSTEM_NAME} MATCHES "NetBSD" )
+
+	#
+	# ww on NetBSD needs libkvm
+	#
+	find_library(LIBKVM "kvm")
+	target_link_libraries(ww kvm)
+
+	if(LIBKVM-NOTFOUND)
+		message(FATAL_ERROR "NCurses is required for ${CMAKE_PROJECT_NAME}")
+	endif(LIBKVM-NOTFOUND)
+endif( ${CMAKE_SYSTEM_NAME} MATCHES "NetBSD" )
+
+target_link_libraries(ww glib-2.0 gobject-2.0 gnt ncurses panel)
