@@ -222,7 +222,10 @@ void get_user_info(GHashTable* users, char* username) {
 
 	struct abstract_user* user_entry=calloc(1,sizeof(struct abstract_user));
 	user_entry->uid=passwd_entry.pw_uid;
-	user_entry->full_name=passwd_entry.pw_gecos;
+
+	/* There may be several fields separated by commas */
+	char* gecos=strndup(passwd_entry.pw_gecos, strcspn(passwd_entry.pw_gecos, ",") );
+	user_entry->full_name=gecos;
 
 	user_entry->main_gid=passwd_entry.pw_gid;
 
