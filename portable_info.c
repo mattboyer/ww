@@ -29,16 +29,16 @@ SUCH DAMAGE.
 
 #include "portable_info.h"
 
-
-#ifdef __NetBSD__
-
-#define ISRUN(p)        (((p)->p_stat == LSRUN) || ((p)->p_stat == SIDL) || \
-                         ((p)->p_stat == LSONPROC))
+/* This isn't OS-specific at all */
 #define TESTAB(a, b)    ((a)<<1 | (b))
 #define ONLYA   2
 #define ONLYB   1
 #define BOTH    3
 
+#ifdef __NetBSD__
+
+#define ISRUN(p)        (((p)->p_stat == LSRUN) || ((p)->p_stat == SIDL) || \
+                         ((p)->p_stat == LSONPROC))
 
 int bsd_proc_compare(struct kinfo_proc2* p1, struct kinfo_proc2* p2) {
 
@@ -116,6 +116,7 @@ void bsd_get_mips(GHashTable* sessions) {
 		struct kinfo_proc2* session_info=calloc(1, sizeof(struct kinfo_proc2));
 		memcpy(session_info, session_process, sizeof(struct kinfo_proc2));
 
+		/* Find candidate processes in the same session */
 		struct kinfo_proc2* mip_candidates=kvm_getproc2(kerneld, KERN_PROC_SESSION, entry->pid, sizeof(struct kinfo_proc2), &processes);
 		if (!mip_candidates)
 			goto fini;
@@ -176,15 +177,143 @@ fini:
 
 #ifdef __sun
 
+#define ISRUN(p)        (( (p)->pr_state == SRUN) || ( (p)->pr_state == SIDL) || \
+                         ( (p)->pr_state == SONPROC))
+
+int sunos_proc_compare(struct psinfo* p1, struct psinfo* p2) {
+
+	/* It would make sense to merge this with the kvm/BSD code. */
+        if (p1 == NULL)
+                return (1);
+
+	struct lwpsinfo* lwp1 = &p1->pr_lwp;
+	struct lwpsinfo* lwp2 = &p2->pr_lwp;
+
+        /*
+         * see if at least one of them is runnable
+         */
+        switch (TESTAB(ISRUN(lwp1), ISRUN(lwp2))) {
+        case ONLYA:
+                return (0);
+        case ONLYB:
+                return (1);
+        case BOTH:
+                /*
+                 * tie - favor one with highest recent CPU utilization
+                 */
+                if (lwp2->pr_pctcpu > lwp1->pr_pctcpu)
+                        return (1);
+                if (lwp1->pr_pctcpu > lwp2->pr_pctcpu)
+                        return (0);
+                return (p2->pr_pid > p1->pr_pid); /* tie - return highest pid */
+        }
+        /*
+         * If neither process is runnable, weed out zombies
+         */
+        switch (TESTAB(lwp1->pr_state == SZOMB, lwp2->pr_state == SZOMB)) {
+        case ONLYA:
+                return (1);
+        case ONLYB:
+                return (0);
+        case BOTH:
+                return (p2->pr_pid > p1->pr_pid); /* tie - return highest pid */
+        }
+        /*
+         * Neither process is runnable and neither of them is a zombie either. Pick the one with the highest usr+sys cpu time
+         */
+        if (lwp1->pr_time.tv_sec > lwp2->pr_time.tv_sec)
+                return (0);
+        if (lwp2->pr_time.tv_sec > lwp1->pr_time.tv_sec)
+                return (1);
+	/* As a tie breaker, the highest PID is declared more interesting */
+        return (p2->pr_pid > p1->pr_pid);
+}
+
+
+/* Although libkvm may be available on Solaris in some cases, we'll access process information through procfs exclusively. */
 void sunos_get_mips(GHashTable* sessions) {
 
 	GHashTableIter session_iterator;
 	gpointer index, value;
 	g_hash_table_iter_init(&session_iterator, sessions);
 
+	DIR* proc_dir_dd;
+	struct dirent* proc_dir_entry; 
+	if ((proc_dir_dd=opendir("/proc"))==NULL) {
+		fprintf(stderr, "could not open /proc\n");
+		return;
+	}
+
+	/* First, we need to build a hash table of all active processes indexed by their session leader ID. We'll use this later to determine which process is the MIP for each session */
+	GHashTable* processes_by_session=g_hash_table_new(g_str_hash, g_str_equal);
+	while(proc_dir_entry=readdir(proc_dir_dd)) {
+
+		if (proc_dir_entry->d_name[0] == '.')
+			continue;
+		pid_t active_process=atoi(proc_dir_entry->d_name);
+
+		/* Get the psinfo structs for all active processes */
+		char* proc_file=calloc(500, sizeof(char));
+		sprintf(proc_file, "/proc/%d/psinfo", active_process);
+		int process_info_fd=open(proc_file, O_RDONLY);
+		if ( 0 > process_info_fd ) {
+			fprintf(stderr, "could not open %s\n", proc_file);
+			return;
+		}
+
+		/* mmap() doesn't work on procfs on Solaris */
+		struct psinfo* process_info=calloc(1, sizeof(struct psinfo));
+		read(process_info_fd, process_info, sizeof(struct psinfo));
+		free(proc_file);
+		close(process_info_fd);
+
+		////////////////////////////
+		/*TODO  this nonsense about converting integers to string so they may serve as gpointer indices has to stop*/
+		char* sid_index=calloc(45, sizeof(char));	//TODO
+		sprintf(sid_index, "%d", process_info->pr_sid);	//TODO
+		////////////////////////////
+
+		/* Build a list of processes for each distinct session leader ID */
+		GList* session_processes=NULL;
+		if ((session_processes=g_hash_table_lookup(processes_by_session, sid_index))==NULL)
+			session_processes=g_list_append(session_processes, process_info);
+		else
+			session_processes=g_list_append(session_processes, process_info);
+		g_hash_table_insert(processes_by_session, sid_index, session_processes);
+	}
+	closedir(proc_dir_dd);
+
+
 	while(g_hash_table_iter_next(&session_iterator, &index, &value)) {
 		struct abstract_utmpx* entry=(struct abstract_utmpx*) value;
-		entry->mip=entry->pid;
+
+		//////////////////
+		/*TODO  this nonsense about converting integers to string so they may serve as gpointer indices has to stop*/
+		char* funk=calloc(45,sizeof(char));	//TODO
+		sprintf(funk, "%d", entry->pid);	//TODO
+		//////////////////
+
+
+		// There should be an entry in processes_by_session for our abstract utmp entry pid
+		GList* processes=(GList*) g_hash_table_lookup(processes_by_session, funk);
+		if (!processes) {
+			fprintf(stderr, "Could not find list of processes with session leader %d\n", entry->pid);
+			return;
+		}
+
+		/* Find the Most Interesting Process in the list*/
+		if (1==g_list_length(processes))
+			entry->mip=entry->pid;
+		else {
+			struct psinfo* mip=g_list_first(processes)->data;
+			GList* mip_candidate;
+			for(mip_candidate=g_list_first(processes); mip_candidate; mip_candidate=g_list_next(mip_candidate)) {
+				if (sunos_proc_compare(mip, (struct psinfo*) mip_candidate->data))
+					mip=mip_candidate->data;
+			}
+			entry->mip=mip->pr_pid;
+		}
+
 	}
 }
 
