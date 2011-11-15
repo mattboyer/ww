@@ -42,6 +42,7 @@ SUCH DAMAGE.
 #include <sys/stat.h>
 #ifndef __NetBSD__
 #include <procfs.h>
+#include <sys/proc.h>
 #else
 #include <kvm.h>
 #include <sys/sysctl.h>
@@ -52,6 +53,7 @@ SUCH DAMAGE.
 #include <sys/utsname.h>
 #ifdef __sun
 #include <netdb.h>
+#include <dirent.h>
 #else
 #include <sys/param.h>
 #endif
