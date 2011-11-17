@@ -1,8 +1,8 @@
-			 _       ___       __
-			| |     / / |     / /
-			| | /| / /| | /| / / 
-			| |/ |/ / | |/ |/ /  
-			|__/|__/  |__/|__/   
+                         _       ___       __
+                        | |     / / |     / /
+                        | | /| / /| | /| / / 
+                        | |/ |/ / | |/ |/ /  
+                        |__/|__/  |__/|__/   
 
 
 See AUTHORS for the list of contributors.
@@ -23,17 +23,17 @@ DEPENDENCIES
 
 WW has dependencies against:
 
-	gnt	- gnt's presence should ensure that the following dependencies
-		| common to WW and gnt are satisfied.
-		| ---
-		| ncurses
-		| glib-2.0
-		| gobject-2.0
-		| gthread-2.0
+        gnt     - gnt's presence should ensure that the following dependencies
+                | common to WW and gnt are satisfied.
+                | ---
+                | ncurses
+                | glib-2.0
+                | gobject-2.0
+                | gthread-2.0
 
-	libkvm on BSD operating systems
+        libkvm on BSD operating systems
 
-	CMake	- CMake is only required for building WW
+        CMake   - CMake is only required for building WW
 
 BUILD INSTRUCTIONS
 ==================

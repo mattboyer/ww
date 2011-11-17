@@ -112,3 +112,5 @@ void get_user_info(GHashTable*, char*);
 int enumerate_sessions(GHashTable*, struct host_status*, GHashTable*);
 
 #endif
+
+/* vim:set tabstop=8 softtabstop=8 shiftwidth=8 noexpandtab list: */

@@ -79,7 +79,8 @@ void display_user_info(GntWidget* originator, gpointer old, gpointer current,
 	char* name;
 	g_hash_table_iter_init(&group_iterator, user_entry->group_membership);
 
-	while(g_hash_table_iter_next(&group_iterator, (gpointer) &gid, (gpointer) &name)) {
+	while(g_hash_table_iter_next(&group_iterator, (gpointer) &gid,
+	    (gpointer) &name)) {
 		if( 0 != strcmp(display_groups, "") )
 			strcat(display_groups, ", ");
 
@@ -199,47 +200,61 @@ void update_max_width(char* text, size_t* width) {
 void display_host_info(struct status* st) {
 
 	/* Hostname */
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Hostname: ", GNT_TEXT_FLAG_BOLD);
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, st->host->host_name, GNT_TEXT_FLAG_NORMAL);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Hostname: ",
+	    GNT_TEXT_FLAG_BOLD);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text,
+	    st->host->host_name, GNT_TEXT_FLAG_NORMAL);
 	gnt_text_view_next_line(st->widgets->host_text);
 
 	/* OS */
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, "OS: ", GNT_TEXT_FLAG_BOLD);
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, st->host->os_type, GNT_TEXT_FLAG_NORMAL);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text, "OS: ",
+	    GNT_TEXT_FLAG_BOLD);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text,
+	    st->host->os_type, GNT_TEXT_FLAG_NORMAL);
 	gnt_text_view_next_line(st->widgets->host_text);
 
 	/* Boot time */
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Up since: ", GNT_TEXT_FLAG_BOLD);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Up since: ",
+	    GNT_TEXT_FLAG_BOLD);
 	char* runlevel_timestamp = calloc(32,sizeof(char));
 	struct tm* runlevel_tm=localtime(&st->host->boot_time);
 	strftime(runlevel_timestamp, 32, "%F %T", (const struct tm*) runlevel_tm);
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, runlevel_timestamp, GNT_TEXT_FLAG_NORMAL);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text,
+	    runlevel_timestamp, GNT_TEXT_FLAG_NORMAL);
 	gnt_text_view_next_line(st->widgets->host_text);
 
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Up for: ", GNT_TEXT_FLAG_BOLD);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Up for: ",
+	    GNT_TEXT_FLAG_BOLD);
 	char* display_uptime= calloc(64,sizeof(char));
 	time_t now;
 	time(&now);
 
 	display_duration((time_t) (now - st->host->boot_time), display_uptime);
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, display_uptime, GNT_TEXT_FLAG_NORMAL);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text, display_uptime,
+	    GNT_TEXT_FLAG_NORMAL);
 	gnt_text_view_next_line(st->widgets->host_text);
 
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Platform: ", GNT_TEXT_FLAG_BOLD);
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, st->host->hardware, GNT_TEXT_FLAG_NORMAL);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Platform: ",
+	    GNT_TEXT_FLAG_BOLD);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text,
+	    st->host->hardware, GNT_TEXT_FLAG_NORMAL);
 	gnt_text_view_next_line(st->widgets->host_text);
 
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Users: ", GNT_TEXT_FLAG_BOLD);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Users: ",
+	    GNT_TEXT_FLAG_BOLD);
 	char* display_users= calloc(32,sizeof(char));
 	sprintf(display_users, "%d", g_hash_table_size(st->users));
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, display_users, GNT_TEXT_FLAG_NORMAL);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text, display_users,
+	    GNT_TEXT_FLAG_NORMAL);
 	gnt_text_view_next_line(st->widgets->host_text);
 
 
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Sessions: ", GNT_TEXT_FLAG_BOLD);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Sessions: ",
+	    GNT_TEXT_FLAG_BOLD);
 	char* display_sessions= calloc(32,sizeof(char));
 	sprintf(display_sessions, "%d", g_hash_table_size(st->sessions));
-	gnt_text_view_append_text_with_flags(st->widgets->host_text, display_sessions, GNT_TEXT_FLAG_NORMAL);
+	gnt_text_view_append_text_with_flags(st->widgets->host_text,
+	    display_sessions, GNT_TEXT_FLAG_NORMAL);
 }
 
 void display_duration(time_t elapsed, char* buffer) {
@@ -327,3 +342,5 @@ void populate_tree(struct status* st, char** keys) {
 	/* Prime the user info display */
 	display_user_info(GNT_WIDGET(st->widgets->utmp_tree), NULL, NULL, st);
 }
+
+/* vim:set tabstop=8 softtabstop=8 shiftwidth=8 noexpandtab list: */

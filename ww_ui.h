@@ -63,3 +63,5 @@ void display_duration(time_t, char*);
 void update_max_width(char*, size_t*);
 
 #endif
+
+/* vim:set tabstop=8 softtabstop=8 shiftwidth=8 noexpandtab list: */

@@ -42,52 +42,53 @@ SUCH DAMAGE.
 
 int bsd_proc_compare(struct kinfo_proc2* p1, struct kinfo_proc2* p2) {
 
-        if (p1 == NULL)
-                return (1);
-        /*
-         * see if at least one of them is runnable
-         */
-        switch (TESTAB(ISRUN(p1), ISRUN(p2))) {
-        case ONLYA:
-                return (0);
-        case ONLYB:
-                return (1);
-        case BOTH:
-                /*
-                 * tie - favor one with highest recent CPU utilization
-                 */
-                if (p2->p_pctcpu > p1->p_pctcpu)
-                        return (1);
-                if (p1->p_pctcpu > p2->p_pctcpu)
-                        return (0);
-                return (p2->p_pid > p1->p_pid); /* tie - return highest pid */
-        }
-        /*
-         * weed out zombies
-         */
-        switch (TESTAB(p1->p_stat == SZOMB, p2->p_stat == SZOMB)) {
-        case ONLYA:
-                return (1);
-        case ONLYB:
-                return (0);
-        case BOTH:
-                return (p2->p_pid > p1->p_pid); /* tie - return highest pid */
-        }
-        /*
-         * pick the one with the smallest sleep time
-         */
-        if (p2->p_slptime > p1->p_slptime)
-                return (0);
-        if (p1->p_slptime > p2->p_slptime)
-                return (1);
-        /*
-         * favor one sleeping in a non-interruptible sleep
-         */
-        if (p1->p_flag & L_SINTR && (p2->p_flag & L_SINTR) == 0)
-                return (1);
-        if (p2->p_flag & L_SINTR && (p1->p_flag & L_SINTR) == 0)
-                return (0);
-        return (p2->p_pid > p1->p_pid);         /* tie - return highest pid */
+	/* TODO: merge with Solaris code. See below. */
+	if (p1 == NULL)
+		return (1);
+	/*
+	 * see if at least one of them is runnable
+	 */
+	switch (TESTAB(ISRUN(p1), ISRUN(p2))) {
+	case ONLYA:
+		return (0);
+	case ONLYB:
+		return (1);
+	case BOTH:
+		/*
+		 * tie - favor one with highest recent CPU utilization
+		 */
+		if (p2->p_pctcpu > p1->p_pctcpu)
+			return (1);
+		if (p1->p_pctcpu > p2->p_pctcpu)
+			return (0);
+		return (p2->p_pid > p1->p_pid); /* tie - return highest pid */
+	}
+	/*
+	 * weed out zombies
+	 */
+	switch (TESTAB(p1->p_stat == SZOMB, p2->p_stat == SZOMB)) {
+	case ONLYA:
+		return (1);
+	case ONLYB:
+		return (0);
+	case BOTH:
+		return (p2->p_pid > p1->p_pid); /* tie - return highest pid */
+	}
+	/*
+	 * pick the one with the smallest sleep time
+	 */
+	if (p2->p_slptime > p1->p_slptime)
+		return (0);
+	if (p1->p_slptime > p2->p_slptime)
+		return (1);
+	/*
+	 * favor one sleeping in a non-interruptible sleep
+	 */
+	if (p1->p_flag & L_SINTR && (p2->p_flag & L_SINTR) == 0)
+		return (1);
+	if (p2->p_flag & L_SINTR && (p1->p_flag & L_SINTR) == 0)
+		return (0);
+	return (p2->p_pid > p1->p_pid);		/* tie - return highest pid */
 
 }
 
@@ -96,10 +97,10 @@ void bsd_get_mips(GHashTable* sessions) {
 	/* Open kvm handle */
 	char* error_buf=calloc(_POSIX2_LINE_MAX, sizeof(char));
 	kvm_t* kerneld;
-	kerneld=kvm_open((char*) NULL, (char*) NULL, (char*) NULL, KVM_NO_FILES, error_buf);
-	if (NULL == kerneld) {
+	kerneld=kvm_open((char*) NULL, (char*) NULL, (char*) NULL, KVM_NO_FILES,
+	    error_buf);
+	if (NULL == kerneld)
 		return;
-	}
 
 	GHashTableIter session_iterator;
 	gpointer index, value;
@@ -109,15 +110,21 @@ void bsd_get_mips(GHashTable* sessions) {
 		struct abstract_utmpx* entry=(struct abstract_utmpx*) value;
 
 		int processes=0;
-		struct kinfo_proc2* session_process=kvm_getproc2(kerneld, KERN_PROC_PID, entry->pid, sizeof(struct kinfo_proc2), &processes);
+		struct kinfo_proc2* session_process=kvm_getproc2(kerneld,
+		    KERN_PROC_PID, entry->pid, sizeof(struct kinfo_proc2),
+		    &processes);
 		if (!session_process || 1!=processes)
 			goto fini;
-		/* make a backup of the struct */
-		struct kinfo_proc2* session_info=calloc(1, sizeof(struct kinfo_proc2));
+
+		/* Make a backup of the struct */
+		struct kinfo_proc2* session_info=calloc(1,
+		   sizeof(struct kinfo_proc2));
 		memcpy(session_info, session_process, sizeof(struct kinfo_proc2));
 
 		/* Find candidate processes in the same session */
-		struct kinfo_proc2* mip_candidates=kvm_getproc2(kerneld, KERN_PROC_SESSION, entry->pid, sizeof(struct kinfo_proc2), &processes);
+		struct kinfo_proc2* mip_candidates=kvm_getproc2(kerneld,
+		    KERN_PROC_SESSION, entry->pid, sizeof(struct kinfo_proc2),
+		    &processes);
 		if (!mip_candidates)
 			goto fini;
 
@@ -127,7 +134,8 @@ void bsd_get_mips(GHashTable* sessions) {
 			/* Find a MIP with proc_compare*/
 			unsigned int candidate_index;
 			struct kinfo_proc2* mip=session_info;
-			for(candidate_index=0; candidate_index<processes; candidate_index++, mip_candidates++) {
+			for(candidate_index=0; candidate_index<processes;
+			    candidate_index++, mip_candidates++) {
 				if (bsd_proc_compare(mip, mip_candidates)) {
 					mip=mip_candidates;
 				}
@@ -145,12 +153,14 @@ void bsd_get_process_info(pid_t pid, char** process_args) {
 
 	char* error_buf=calloc(_POSIX2_LINE_MAX, sizeof(char));
 	kvm_t* kerneld;
-	kerneld=kvm_open((char*) NULL, (char*) NULL, (char*) NULL, KVM_NO_FILES, error_buf);
+	kerneld=kvm_open((char*) NULL, (char*) NULL, (char*) NULL, KVM_NO_FILES,
+	    error_buf);
 	if (!kerneld)
 		goto fini;
 
 	int processes=0;
-	struct kinfo_proc2* proc_info=kvm_getproc2(kerneld, KERN_PROC_PID, pid, sizeof(struct kinfo_proc2), &processes);
+	struct kinfo_proc2* proc_info=kvm_getproc2(kerneld, KERN_PROC_PID, pid,
+	    sizeof(struct kinfo_proc2), &processes);
 	if (1 != processes)
 		goto fini;
 
@@ -182,55 +192,64 @@ fini:
 
 int sunos_proc_compare(struct psinfo* p1, struct psinfo* p2) {
 
-	/* It would make sense to merge this with the kvm/BSD code. */
-        if (p1 == NULL)
-                return (1);
+	/* TODO: It would make sense to create a generic version of the
+	 * algorithm with precompiler variables for OS-specific struct members
+	 * and #defines. Someday.
+	 */
+	if (p1 == NULL)
+		return (1);
 
 	struct lwpsinfo* lwp1 = &p1->pr_lwp;
 	struct lwpsinfo* lwp2 = &p2->pr_lwp;
 
-        /*
-         * see if at least one of them is runnable
-         */
-        switch (TESTAB(ISRUN(lwp1), ISRUN(lwp2))) {
-        case ONLYA:
-                return (0);
-        case ONLYB:
-                return (1);
-        case BOTH:
-                /*
-                 * tie - favor one with highest recent CPU utilization
-                 */
-                if (lwp2->pr_pctcpu > lwp1->pr_pctcpu)
-                        return (1);
-                if (lwp1->pr_pctcpu > lwp2->pr_pctcpu)
-                        return (0);
-                return (p2->pr_pid > p1->pr_pid); /* tie - return highest pid */
-        }
-        /*
-         * If neither process is runnable, weed out zombies
-         */
-        switch (TESTAB(lwp1->pr_state == SZOMB, lwp2->pr_state == SZOMB)) {
-        case ONLYA:
-                return (1);
-        case ONLYB:
-                return (0);
-        case BOTH:
-                return (p2->pr_pid > p1->pr_pid); /* tie - return highest pid */
-        }
-        /*
-         * Neither process is runnable and neither of them is a zombie either. Pick the one with the highest usr+sys cpu time
-         */
-        if (lwp1->pr_time.tv_sec > lwp2->pr_time.tv_sec)
-                return (0);
-        if (lwp2->pr_time.tv_sec > lwp1->pr_time.tv_sec)
-                return (1);
+	/*
+	 * see if at least one of them is runnable
+	 */
+	switch (TESTAB(ISRUN(lwp1), ISRUN(lwp2))) {
+	case ONLYA:
+		return (0);
+	case ONLYB:
+		return (1);
+	case BOTH:
+		/*
+		 * tie - favor one with highest recent CPU utilization
+		 */
+		if (lwp2->pr_pctcpu > lwp1->pr_pctcpu)
+			return (1);
+		if (lwp1->pr_pctcpu > lwp2->pr_pctcpu)
+			return (0);
+		return (p2->pr_pid > p1->pr_pid); /* tie - return highest pid */
+	}
+
+	/*
+	 * If neither process is runnable, weed out zombies
+	 */
+	switch (TESTAB(lwp1->pr_state == SZOMB, lwp2->pr_state == SZOMB)) {
+	case ONLYA:
+		return (1);
+	case ONLYB:
+		return (0);
+	case BOTH:
+		return (p2->pr_pid > p1->pr_pid); /* tie - return highest pid */
+	}
+
+	/*
+	 * Neither process is runnable and neither of them is a zombie either.
+	 * Pick the one with the highest usr+sys cpu time
+	 */
+	if (lwp1->pr_time.tv_sec > lwp2->pr_time.tv_sec)
+		return (0);
+	if (lwp2->pr_time.tv_sec > lwp1->pr_time.tv_sec)
+		return (1);
+
 	/* As a tie breaker, the highest PID is declared more interesting */
-        return (p2->pr_pid > p1->pr_pid);
+	return (p2->pr_pid > p1->pr_pid);
 }
 
 
-/* Although libkvm may be available on Solaris in some cases, we'll access process information through procfs exclusively. */
+/* Although libkvm may be available on Solaris in some cases, we'll access
+ * process information through procfs exclusively.
+ */
 void sunos_get_mips(GHashTable* sessions) {
 
 	GHashTableIter session_iterator;
@@ -244,7 +263,10 @@ void sunos_get_mips(GHashTable* sessions) {
 		return;
 	}
 
-	/* First, we need to build a hash table of all active processes indexed by their session leader ID. We'll use this later to determine which process is the MIP for each session */
+	/* First, we need to build a hash table of all active processes indexed
+	 * by their session leader ID. We'll use this later to determine which
+	 * process is the MIP for each session.
+	 */
 	GHashTable* processes_by_session=g_hash_table_new(NULL, NULL);
 	while(proc_dir_entry=readdir(proc_dir_dd)) {
 
@@ -269,11 +291,15 @@ void sunos_get_mips(GHashTable* sessions) {
 
 		/* Build a list of processes for each distinct session leader ID */
 		GList* session_processes=NULL;
-		if ((session_processes=g_hash_table_lookup(processes_by_session, GINT_TO_POINTER(process_info->pr_sid)))==NULL)
-			session_processes=g_list_append(session_processes, process_info);
+		if ((session_processes=g_hash_table_lookup(processes_by_session,
+		    GINT_TO_POINTER(process_info->pr_sid)))==NULL)
+			session_processes=g_list_append(session_processes,
+			    process_info);
 		else
-			session_processes=g_list_append(session_processes, process_info);
-		g_hash_table_insert(processes_by_session, GINT_TO_POINTER(process_info->pr_sid), session_processes);
+			session_processes=g_list_append(session_processes,
+			    process_info);
+		g_hash_table_insert(processes_by_session,
+		    GINT_TO_POINTER(process_info->pr_sid), session_processes);
 	}
 	closedir(proc_dir_dd);
 
@@ -281,11 +307,14 @@ void sunos_get_mips(GHashTable* sessions) {
 	while(g_hash_table_iter_next(&session_iterator, &index, &value)) {
 		struct abstract_utmpx* entry=(struct abstract_utmpx*) value;
 
-
-		// There should be an entry in processes_by_session for our abstract utmp entry pid
-		GList* processes=(GList*) g_hash_table_lookup(processes_by_session, GINT_TO_POINTER(entry->pid));
+		/* There should be an entry in processes_by_session for our
+		 * abstract utmp entry pid.
+		 */
+		GList* processes=(GList*) g_hash_table_lookup(processes_by_session,
+		    GINT_TO_POINTER(entry->pid));
 		if (!processes) {
-			fprintf(stderr, "Could not find list of processes with session leader %d\n", entry->pid);
+			fprintf(stderr, "Could not find list of processes with "
+			    "session leader %d\n", entry->pid);
 			return;
 		}
 
@@ -295,8 +324,10 @@ void sunos_get_mips(GHashTable* sessions) {
 		else {
 			struct psinfo* mip=g_list_first(processes)->data;
 			GList* mip_candidate;
-			for(mip_candidate=g_list_first(processes); mip_candidate; mip_candidate=g_list_next(mip_candidate)) {
-				if (sunos_proc_compare(mip, (struct psinfo*) mip_candidate->data))
+			for(mip_candidate=g_list_first(processes); mip_candidate;
+			    mip_candidate=g_list_next(mip_candidate)) {
+				if (sunos_proc_compare(mip, (struct psinfo*)
+				    mip_candidate->data))
 					mip=mip_candidate->data;
 			}
 			entry->mip=mip->pr_pid;
@@ -334,14 +365,16 @@ void get_user_info(GHashTable* users, char* username) {
 	getpwnam_r(username, &passwd_entry, passwd_buf, passwd_buflen);
 #else
 	struct passwd* result_struct;
-	getpwnam_r(username, &passwd_entry, passwd_buf, passwd_buflen, &result_struct);
+	getpwnam_r(username, &passwd_entry, passwd_buf, passwd_buflen,
+	    &result_struct);
 #endif
 
 	struct abstract_user* user_entry=calloc(1,sizeof(struct abstract_user));
 	user_entry->uid=passwd_entry.pw_uid;
 
 	/* There may be several fields separated by commas */
-	char* gecos=strndup(passwd_entry.pw_gecos, strcspn(passwd_entry.pw_gecos, ",") );
+	char* gecos=strndup(passwd_entry.pw_gecos, strcspn(passwd_entry.pw_gecos,
+	    ",") );
 	user_entry->full_name=gecos;
 
 	user_entry->main_gid=passwd_entry.pw_gid;
@@ -367,9 +400,11 @@ void get_user_info(GHashTable* users, char* username) {
 		getgrgid_r(*group_index, group_info, group_buf, group_buflen);
 #else
 		struct group* result;
-		getgrgid_r(*group_index, group_info, group_buf, group_buflen, &result);
+		getgrgid_r(*group_index, group_info, group_buf, group_buflen,
+		    &result);
 #endif
-		g_hash_table_insert(membership, GINT_TO_POINTER(*group_index), group_info->gr_name);
+		g_hash_table_insert(membership, GINT_TO_POINTER(*group_index),
+		    group_info->gr_name);
 		if (group_index == &user_entry->main_gid)
 			group_index=gid_membership;
 	}
@@ -390,7 +425,8 @@ void get_host_info(struct host_status* status) {
 	status->host_name=hostname;
 }
 
-int enumerate_sessions(GHashTable* abstract_sessions, struct host_status* status, GHashTable* users) {
+int enumerate_sessions(GHashTable* abstract_sessions, struct host_status* status,
+    GHashTable* users) {
 
 	struct utmpx* entry;
 	setutxent();
@@ -403,7 +439,8 @@ int enumerate_sessions(GHashTable* abstract_sessions, struct host_status* status
 		if (entry->ut_type != USER_PROCESS)
 			continue;
 
-		struct abstract_utmpx* abstract=calloc(1,sizeof(struct abstract_utmpx));
+		struct abstract_utmpx* abstract=calloc(1,
+		    sizeof(struct abstract_utmpx));
 
 		/* Get user name */
 #if defined(__sun) || defined(__linux__)
@@ -441,7 +478,7 @@ int enumerate_sessions(GHashTable* abstract_sessions, struct host_status* status
 		char* host=strndup(entry->ut_host, _UTX_HOSTSIZE);
 #endif
 #ifdef __linux__
-               char* host=strndup(entry->ut_host, __UT_HOSTSIZE);
+		char* host=strndup(entry->ut_host, __UT_HOSTSIZE);
 #endif
 		abstract->login_host=host;
 
@@ -451,3 +488,5 @@ int enumerate_sessions(GHashTable* abstract_sessions, struct host_status* status
 	}
 	return g_hash_table_size(abstract_sessions);
 }
+
+/* vim:set tabstop=8 softtabstop=8 shiftwidth=8 noexpandtab list: */

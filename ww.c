@@ -61,9 +61,9 @@ int main(int argc, char** argv) {
 	populate_tree(&st, keys);
 
 	/*
-	TODO: Do something re: layout and the use of horizontal space in
-	particular
-	*/
+	 * TODO: Do something re: layout and the use of horizontal space in
+	 * particular
+	 */
 	gnt_box_sync_children(GNT_BOX(widgets.window));
 	gnt_main();
 
@@ -72,3 +72,5 @@ int main(int argc, char** argv) {
 	free(keys);
 	return EXIT_SUCCESS;
 }
+
+/* vim:set tabstop=8 softtabstop=8 shiftwidth=8 noexpandtab list: */
