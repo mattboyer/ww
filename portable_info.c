@@ -245,7 +245,7 @@ void sunos_get_mips(GHashTable* sessions) {
 	}
 
 	/* First, we need to build a hash table of all active processes indexed by their session leader ID. We'll use this later to determine which process is the MIP for each session */
-	GHashTable* processes_by_session=g_hash_table_new(g_str_hash, g_str_equal);
+	GHashTable* processes_by_session=g_hash_table_new(NULL, NULL);
 	while(proc_dir_entry=readdir(proc_dir_dd)) {
 
 		if (proc_dir_entry->d_name[0] == '.')
@@ -267,19 +267,13 @@ void sunos_get_mips(GHashTable* sessions) {
 		free(proc_file);
 		close(process_info_fd);
 
-		////////////////////////////
-		/*TODO  this nonsense about converting integers to string so they may serve as gpointer indices has to stop*/
-		char* sid_index=calloc(45, sizeof(char));	//TODO
-		sprintf(sid_index, "%d", process_info->pr_sid);	//TODO
-		////////////////////////////
-
 		/* Build a list of processes for each distinct session leader ID */
 		GList* session_processes=NULL;
-		if ((session_processes=g_hash_table_lookup(processes_by_session, sid_index))==NULL)
+		if ((session_processes=g_hash_table_lookup(processes_by_session, GINT_TO_POINTER(process_info->pr_sid)))==NULL)
 			session_processes=g_list_append(session_processes, process_info);
 		else
 			session_processes=g_list_append(session_processes, process_info);
-		g_hash_table_insert(processes_by_session, sid_index, session_processes);
+		g_hash_table_insert(processes_by_session, GINT_TO_POINTER(process_info->pr_sid), session_processes);
 	}
 	closedir(proc_dir_dd);
 
@@ -287,15 +281,9 @@ void sunos_get_mips(GHashTable* sessions) {
 	while(g_hash_table_iter_next(&session_iterator, &index, &value)) {
 		struct abstract_utmpx* entry=(struct abstract_utmpx*) value;
 
-		//////////////////
-		/*TODO  this nonsense about converting integers to string so they may serve as gpointer indices has to stop*/
-		char* funk=calloc(45,sizeof(char));	//TODO
-		sprintf(funk, "%d", entry->pid);	//TODO
-		//////////////////
-
 
 		// There should be an entry in processes_by_session for our abstract utmp entry pid
-		GList* processes=(GList*) g_hash_table_lookup(processes_by_session, funk);
+		GList* processes=(GList*) g_hash_table_lookup(processes_by_session, GINT_TO_POINTER(entry->pid));
 		if (!processes) {
 			fprintf(stderr, "Could not find list of processes with session leader %d\n", entry->pid);
 			return;
@@ -359,29 +347,31 @@ void get_user_info(GHashTable* users, char* username) {
 	user_entry->main_gid=passwd_entry.pw_gid;
 
 	/* We store the main GID and the memberships in a separate hash table */
-	GHashTable* membership=g_hash_table_new(g_int_hash, g_int_equal);
+	GHashTable* membership=g_hash_table_new(NULL, NULL);
 
 	/* temporarily use an array of gid_t */
 	size_t max_groups=sysconf(_SC_NGROUPS_MAX);
 	gid_t* gid_membership=calloc(max_groups, sizeof(gid_t));
 	getgroups(max_groups, gid_membership);
 
-	gid_t* index;
+	gid_t* group_index;
 	size_t group_buflen=sysconf(_SC_GETGR_R_SIZE_MAX);
-	for(index=&user_entry->main_gid; *index; index++) {
+
+	/* Iterate on gid_membership + the user's main GID */
+	for(group_index=&user_entry->main_gid; *group_index; group_index++) {
 
 		struct group* group_info=calloc(1,sizeof(struct group));
 		void* group_buf=malloc(group_buflen);
 
 #ifdef __sun
-		getgrgid_r(*index, group_info, group_buf, group_buflen);
+		getgrgid_r(*group_index, group_info, group_buf, group_buflen);
 #else
 		struct group* result;
-		getgrgid_r(*index, group_info, group_buf, group_buflen, &result);
+		getgrgid_r(*group_index, group_info, group_buf, group_buflen, &result);
 #endif
-		g_hash_table_insert(membership, index, group_info->gr_name);
-		if (index == &user_entry->main_gid)
-			index=gid_membership;
+		g_hash_table_insert(membership, GINT_TO_POINTER(*group_index), group_info->gr_name);
+		if (group_index == &user_entry->main_gid)
+			group_index=gid_membership;
 	}
 	//free(gid_membership);
 	user_entry->group_membership = membership;

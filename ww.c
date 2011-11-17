@@ -38,8 +38,8 @@ int main(int argc, char** argv) {
 	struct host_status host;
 	struct main_window_widgets widgets;
 
-	GHashTable* sessions=g_hash_table_new(g_str_hash, g_str_equal);
-	GHashTable* users=g_hash_table_new(g_str_hash, g_str_equal);
+	GHashTable* sessions=g_hash_table_new(NULL, NULL);
+	GHashTable* users=g_hash_table_new(NULL, NULL);
 
 	struct status st;
 	st.users=users;
