@@ -75,17 +75,16 @@ void display_user_info(GntWidget* originator, gpointer old, gpointer current,
 	char* display_groups=calloc(512, sizeof(char));
 
 	GHashTableIter group_iterator;
-	gid_t gid;
+	gpointer gid;
 	char* name;
 	g_hash_table_iter_init(&group_iterator, user_entry->group_membership);
 
-	while(g_hash_table_iter_next(&group_iterator, (gpointer) &gid,
-	    (gpointer) &name)) {
+	while(g_hash_table_iter_next(&group_iterator, &gid, (gpointer) &name)) {
 		if( 0 != strcmp(display_groups, "") )
 			strcat(display_groups, ", ");
 
 		char* display_group=calloc(32,sizeof(char));
-		sprintf(display_group, "%s(%d)", name, gid);
+		sprintf(display_group, "%s(%d)", name, GPOINTER_TO_INT(gid));
 		display_groups=strcat(display_groups, display_group);
 	}
 	gnt_text_view_append_text_with_flags(status->widgets->user_text,
