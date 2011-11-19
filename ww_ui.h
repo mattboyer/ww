@@ -44,6 +44,20 @@ SUCH DAMAGE.
 #define SEC_HOUR 3600
 #define SEC_MINUTE 60
 
+#define COLUMN_TITLES	"User", "TTY", "PID", "Logged in @", "Logged in for", \
+			"Running"
+#define NUM_COLUMNS 6
+
+typedef enum {
+	DATE_COMPACT	=	0,
+	DATE_FULL	=	1,
+} date_verbosity;
+
+typedef enum {
+	INTERVAL_COMPACT=	0,
+	INTERVAL_FULL	=	1,
+} interval_verbosity;
+
 struct main_window_widgets {
 	GntWindow* window;
 	GntTree* utmp_tree;
@@ -59,7 +73,8 @@ void setup_ui(struct status*);
 void populate_tree(struct status*, char**);
 void dismantle_ui(GntWidget*, struct status*);
 void display_host_info(struct status*);
-void display_duration(time_t, char*);
+void sprint_interval(time_t, char**, interval_verbosity);
+void sprint_date(struct tm*, char**, date_verbosity);
 void update_max_width(char*, size_t*);
 
 #endif

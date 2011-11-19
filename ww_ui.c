@@ -152,9 +152,8 @@ void setup_ui(struct status* st) {
 
 
 	/* Tree widget */
-	GntWidget* tree = gnt_tree_new_with_columns(6);
-	gnt_tree_set_column_titles(GNT_TREE(tree), "User", "TTY", "PID",
-	    "Logged in at", "Logged in for", "Running");
+	GntWidget* tree = gnt_tree_new_with_columns(NUM_COLUMNS);
+	gnt_tree_set_column_titles(GNT_TREE(tree), COLUMN_TITLES);
 	gnt_tree_set_show_title(GNT_TREE(tree), TRUE);
 	GNT_WIDGET_SET_FLAGS(tree, GNT_WIDGET_NO_BORDER);
 	gnt_box_add_widget(GNT_BOX(utmp_window), tree);
@@ -215,30 +214,36 @@ void display_host_info(struct status* st) {
 	/* Boot time */
 	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Up since: ",
 	    GNT_TEXT_FLAG_BOLD);
-	char* runlevel_timestamp = calloc(32,sizeof(char));
+	char* runlevel_timestamp;
 	struct tm* runlevel_tm=localtime(&st->host->boot_time);
-	strftime(runlevel_timestamp, 32, "%F %T", (const struct tm*) runlevel_tm);
+	/* TODO: Let the UI decide between long and short form based on
+	 * the width of the terminal, as reported to ncurses.
+	 */
+	sprint_date(runlevel_tm, &runlevel_timestamp, DATE_FULL);
 	gnt_text_view_append_text_with_flags(st->widgets->host_text,
 	    runlevel_timestamp, GNT_TEXT_FLAG_NORMAL);
 	gnt_text_view_next_line(st->widgets->host_text);
 
+	/* Uptime */
 	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Up for: ",
 	    GNT_TEXT_FLAG_BOLD);
-	char* display_uptime= calloc(64,sizeof(char));
+	char* display_uptime;
 	time_t now;
 	time(&now);
-
-	display_duration((time_t) (now - st->host->boot_time), display_uptime);
+	sprint_interval((time_t) (now - st->host->boot_time), &display_uptime,
+	    INTERVAL_FULL);
 	gnt_text_view_append_text_with_flags(st->widgets->host_text, display_uptime,
 	    GNT_TEXT_FLAG_NORMAL);
 	gnt_text_view_next_line(st->widgets->host_text);
 
+	/* Platform */
 	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Platform: ",
 	    GNT_TEXT_FLAG_BOLD);
 	gnt_text_view_append_text_with_flags(st->widgets->host_text,
 	    st->host->hardware, GNT_TEXT_FLAG_NORMAL);
 	gnt_text_view_next_line(st->widgets->host_text);
 
+	/* Number of distinct users logged in */
 	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Users: ",
 	    GNT_TEXT_FLAG_BOLD);
 	char* display_users= calloc(32,sizeof(char));
@@ -247,7 +252,7 @@ void display_host_info(struct status* st) {
 	    GNT_TEXT_FLAG_NORMAL);
 	gnt_text_view_next_line(st->widgets->host_text);
 
-
+	/* Number of open sessions */
 	gnt_text_view_append_text_with_flags(st->widgets->host_text, "Sessions: ",
 	    GNT_TEXT_FLAG_BOLD);
 	char* display_sessions= calloc(32,sizeof(char));
@@ -256,21 +261,10 @@ void display_host_info(struct status* st) {
 	    display_sessions, GNT_TEXT_FLAG_NORMAL);
 }
 
-void display_duration(time_t elapsed, char* buffer) {
-	/* We only care about days, hours and minutes */
-	unsigned int days, hours, minutes;
-
-	days=elapsed/SEC_DAY;
-	hours=(elapsed - days*SEC_DAY)/SEC_HOUR;
-	minutes=(elapsed - days*SEC_DAY - hours*SEC_HOUR)/SEC_MINUTE;
-	sprintf(buffer, "%d days %d hours %d minutes", days, hours, minutes);
-}
-
 void populate_tree(struct status* st, char** keys) {
 
 	/* Prepare an array to determine the max width of each column */
-	size_t* max_widths = calloc(g_hash_table_size(st->sessions),
-	    sizeof(size_t));
+	size_t* max_widths = calloc(NUM_COLUMNS, sizeof(size_t));
 	GHashTableIter session_iterator;
 	gpointer index, value;
 	g_hash_table_iter_init(&session_iterator, st->sessions);
@@ -282,32 +276,41 @@ void populate_tree(struct status* st, char** keys) {
 		GList* columns=NULL;
 		unsigned int col_index=0;
 
+		/* User name */
 		columns=g_list_append(columns, entry->user_name);
 		update_max_width(entry->user_name, max_widths+col_index++);
 
+		/* TTY name */
 		columns=g_list_append(columns, entry->tty_name);
 		update_max_width(entry->tty_name, max_widths+col_index++);
 
+		/* Login PID */
 		char* pid_string=calloc(MAX_PID_LENGTH, sizeof(char));
 		sprintf(pid_string, "%d", entry->pid);
 		columns=g_list_append(columns, pid_string);
 		update_max_width(pid_string, max_widths+col_index++);
 
-		char* display_login_time= calloc(32,sizeof(char));
+		/* Login time */
+		char* display_login_time;
 		struct tm* login_tm=localtime(&entry->login_time);
-		strftime(display_login_time, 32, "%F %T", (const struct tm*)
-		    login_tm);
+		sprint_date(login_tm, &display_login_time, DATE_COMPACT);
 		columns=g_list_append(columns, display_login_time);
 		update_max_width(display_login_time, max_widths+col_index++);
 
-		char* session_duration=calloc(64,sizeof(char));
+		/* Session duration */
+		char* session_duration;
 		time_t now;
 		time(&now);
-		display_duration((time_t) (now - entry->login_time),
-		    session_duration);
+
+		/* TODO: Let the UI decide between long and short form based on
+		 * the width of the terminal, as reported to ncurses.
+		 */
+		sprint_interval((time_t) (now - entry->login_time),
+		    &session_duration, INTERVAL_COMPACT);
 		columns=g_list_append(columns, session_duration);
 		update_max_width(session_duration, max_widths+col_index++);
 
+		/* Command and args of the Most Interesting Process */
 #ifdef __sun
 		char* process_args=calloc(PRARGSZ, sizeof(char));
 #else
@@ -320,7 +323,7 @@ void populate_tree(struct status* st, char** keys) {
 		columns=g_list_append(columns, process_args);
 		update_max_width(process_args, max_widths+col_index++);
 
-
+		/* Add the row to the tree */
 		GntTreeRow* r = gnt_tree_create_row_from_list(
 		    st->widgets->utmp_tree, columns);
 		gnt_tree_add_row_last(st->widgets->utmp_tree, index, r, NULL);
@@ -330,7 +333,7 @@ void populate_tree(struct status* st, char** keys) {
 
 	/* Resize the columns according to their widest entry */
 	unsigned int i;
-	for(i=0; i<6; i++) {
+	for(i=0; i<NUM_COLUMNS; i++) {
 		gnt_tree_set_col_width(GNT_TREE(st->widgets->utmp_tree), i,
 		    max_widths[i]+1);
 	}
@@ -340,6 +343,53 @@ void populate_tree(struct status* st, char** keys) {
 
 	/* Prime the user info display */
 	display_user_info(GNT_WIDGET(st->widgets->utmp_tree), NULL, NULL, st);
+}
+
+void sprint_interval(time_t elapsed, char** buf, interval_verbosity flag) {
+	/* We only care about days, hours and minutes */
+	unsigned int days, hours, minutes;
+
+	days=elapsed/SEC_DAY;
+	hours=(elapsed - days*SEC_DAY)/SEC_HOUR;
+	minutes=(elapsed - days*SEC_DAY - hours*SEC_HOUR)/SEC_MINUTE;
+
+	char* buffer;
+	switch(flag) {
+	case INTERVAL_COMPACT:
+		buffer=calloc(12, sizeof(char));
+		sprintf(buffer, "%dd:%dh:%dm", days, hours, minutes);
+		break;
+	case INTERVAL_FULL:
+		buffer=calloc(32, sizeof(char));
+		sprintf(buffer, "%d days %d hours %d minutes", days, hours,
+		    minutes);
+		break;
+	}
+	*buf=buffer;
+}
+
+void sprint_date(struct tm* date, char** buf, date_verbosity flag) {
+
+	char* buffer;
+	switch(flag) {
+	case DATE_FULL:
+		buffer=calloc(32, sizeof(char));
+		strftime(buffer, 32, "%F %T", (const struct tm*) date);
+		break;
+	case DATE_COMPACT:
+		buffer=calloc(12, sizeof(char));
+		// is date less than a day old?
+		time_t now;
+		time(&now);
+		time_t date_time=mktime(date);
+		if( now - date_time <= SEC_DAY ) {
+			strftime(buffer, 12, "%T", (const struct tm*) date);
+		} else {
+			strftime(buffer, 12, "%F", (const struct tm*) date);
+		}
+		break;
+	}
+	*buf=buffer;
 }
 
 /* vim:set tabstop=8 softtabstop=8 shiftwidth=8 noexpandtab list: */
