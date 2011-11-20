@@ -164,7 +164,8 @@ void bsd_get_process_info(pid_t pid, char** process_args) {
 	if (1 != processes)
 		goto fini;
 
-	char ** process_argv=kvm_getargv2(kerneld, proc_info, 500);
+	size_t args_max_size=sysconf(_SC_ARG_MAX);
+	char ** process_argv=kvm_getargv2(kerneld, proc_info, args_max_size);
 	if (!process_argv )
 		goto fini;
 
