@@ -35,18 +35,35 @@ SUCH DAMAGE.
 #include <time.h>
 #include <unistd.h>
 #include <strings.h>
+#include <string.h>
+
+/* Shouldn't utmpx detection be done by CMake? */
+#if defined(__sun) || defined(__NetBSD__) || defined(__linux__)
+#define HAS_UTMPX
 #include <utmpx.h>
+#endif
+
 #include <pwd.h>
 #include <grp.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifndef __NetBSD__
+
+#if defined(__sun)
+/* Shouldn't we use sys/procfs.h directly? */
 #include <procfs.h>
 #include <sys/proc.h>
-#else
+#endif
+
+#if defined(__linux__)
+#include <dirent.h>
+#include <proc/readproc.h>
+#endif
+
+#if defined(__NetBSD__) || defined(__FreeBSD__)
 #include <kvm.h>
 #include <sys/sysctl.h>
 #endif
+
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -92,11 +109,18 @@ struct status {
 	struct host_status* host;
 };
 
-#ifdef sun
+#ifdef __sun
 void sunos_get_process_info(pid_t, char**);
 void sunos_get_mips(GHashTable*);
 #define get_process_info(X, Y) sunos_get_process_info(X,Y)
 #define get_mips(X) sunos_get_mips(X)
+#endif
+
+#ifdef __linux__
+void linux_get_process_info(pid_t, char**);
+void linux_get_mips(GHashTable*);
+#define get_process_info(X, Y) linux_get_process_info(X,Y)
+#define get_mips(X) linux_get_mips(X)
 #endif
 
 #ifdef __NetBSD__

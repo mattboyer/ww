@@ -186,6 +186,165 @@ fini:
 }
 #endif
 
+#ifdef __linux__
+
+#define ISRUN(p)        ((p)->state == 'R')
+
+
+int linux_proc_compare(struct proc_t* p1, struct proc_t* p2) {
+
+	if (p1 == NULL)
+		return (1);
+
+	/*
+	 * see if at least one of them is runnable
+	 */
+	switch (TESTAB(ISRUN(p1), ISRUN(p2))) {
+	case ONLYA:
+		return (0);
+	case ONLYB:
+		return (1);
+	case BOTH:
+		/*
+		 * tie - favor one with highest recent CPU utilization
+		 */
+		if (p2->pcpu > p1->pcpu)
+			return (1);
+		if (p1->pcpu > p2->pcpu)
+			return (0);
+		return (p2->XXXID > p1->XXXID); /* tie - return highest pid */
+	}
+
+	/*
+	 * If neither process is runnable, weed out zombies
+	 */
+	switch (TESTAB(p1->state == 'Z', p2->state == 'Z')) {
+	case ONLYA:
+		return (1);
+	case ONLYB:
+		return (0);
+	case BOTH:
+		return (p2->XXXID > p1->XXXID); /* tie - return highest pid */
+	}
+
+	/*
+	 * Neither process is runnable and neither of them is a zombie either.
+	 * Pick the one with the highest usr+sys cpu time
+	 */
+	if (p1->utime+p1->stime > p2->utime+p2->stime)
+		return (0);
+	if (p2->utime+p2->stime > p1->utime+p1->stime)
+		return (1);
+
+	/* As a tie breaker, the highest PID is declared more interesting */
+	return (p2->XXXID > p1->XXXID);
+
+}
+
+void linux_get_process_info(pid_t pid, char** process_args) {
+
+	char* proc_file=calloc(500, sizeof(char));
+	sprintf(proc_file, "/proc/%d/cmdline", pid);
+	int psinfo_fd=open(proc_file, O_RDONLY);
+	if ( 0 > psinfo_fd ) {
+		sprintf(*process_args, "could not open %s\n", proc_file);
+		return;
+	}
+
+	/* On Linux, we can just read /proc/$PID/cmdline */
+	size_t arg_max_size=sysconf(_SC_ARG_MAX);
+	read(psinfo_fd, *process_args, arg_max_size);
+	close(psinfo_fd);
+}
+
+void linux_get_mips(GHashTable* sessions) {
+
+	GHashTableIter session_iterator;
+	gpointer index, value;
+	g_hash_table_iter_init(&session_iterator, sessions);
+
+	/* First, we need to build a hash table of all active processes indexed
+	 * by their session leader ID. We'll use this later to determine which
+	 * process is the MIP for each session.
+	 */
+	GHashTable* processes_by_session=g_hash_table_new(NULL, NULL);
+	GHashTable* all_processes=g_hash_table_new(NULL, NULL);
+
+	PROCTAB* procfs_handle=openproc(PROC_FILLSTAT);
+	proc_t* process_info=calloc(1, sizeof(proc_t));
+	while(NULL != readproc(procfs_handle, process_info)) {
+
+		/* Build a list of processes for each distinct session leader ID */
+		GList* session_processes=NULL;
+		if ((session_processes=g_hash_table_lookup(processes_by_session,
+		    GINT_TO_POINTER(process_info->session)))==NULL)
+			session_processes=g_list_append(session_processes,
+			    process_info);
+		else
+			session_processes=g_list_append(session_processes,
+			    process_info);
+		g_hash_table_insert(processes_by_session,
+		    GINT_TO_POINTER(process_info->session), session_processes);
+
+		/* Also insert this proc_t in a hash of all processes */
+		g_hash_table_insert(all_processes, GINT_TO_POINTER(
+		    process_info->XXXID), process_info);
+
+		process_info=calloc(1, sizeof(proc_t));
+	}
+	closeproc(procfs_handle);
+
+	while(g_hash_table_iter_next(&session_iterator, &index, &value)) {
+		struct abstract_utmpx* entry=(struct abstract_utmpx*) value;
+
+		/* There should be an entry in processes_by_session for our
+		 * abstract utmp entry pid.
+		 */
+		pid_t session_leader=entry->pid;
+		GList* processes;
+session_lookup:
+		processes=(GList*) g_hash_table_lookup(processes_by_session,
+		    GINT_TO_POINTER(session_leader));
+
+		/* Apparently, on Linux, the session leader of a
+		 * process *may* not always be among the processes reported by
+		 * utmpx. For instance, when I log in on a VM's console, the
+		 * session ID is the PID of a /bin/login process (run by root),
+		 * but utmpx asserts that my login shell process started the
+		 * session. If we can't find our UTMPX session leader among the
+		 * session leaders read by libproc, we'll try its parent
+		 * process.
+		 */
+		if (!processes) {
+			if (session_leader==entry->pid) {
+				proc_t* parent_info=(proc_t*) g_hash_table_lookup(
+				    all_processes, GINT_TO_POINTER(entry->pid));
+				session_leader=parent_info->ppid;
+				goto session_lookup;
+			} else {
+				entry->mip=-1;
+				continue;
+			}
+		}
+
+		/* Find the Most Interesting Process in the list */
+		if (1==g_list_length(processes))
+			entry->mip=entry->pid;
+		else {
+			struct proc_t* mip=g_list_first(processes)->data;
+			GList* mip_candidate;
+			for(mip_candidate=g_list_first(processes); mip_candidate;
+			    mip_candidate=g_list_next(mip_candidate)) {
+				if (linux_proc_compare(mip, (struct proc_t*)
+				    mip_candidate->data))
+					mip=mip_candidate->data;
+			}
+			entry->mip=mip->XXXID;
+		}
+	}
+}
+#endif
+
 #ifdef __sun
 
 #define ISRUN(p)        (( (p)->pr_state == SRUN) || ( (p)->pr_state == SIDL) || \
@@ -316,7 +475,7 @@ void sunos_get_mips(GHashTable* sessions) {
 		if (!processes) {
 			fprintf(stderr, "Could not find list of processes with "
 			    "session leader %d\n", entry->pid);
-			return;
+			continue;
 		}
 
 		/* Find the Most Interesting Process in the list*/

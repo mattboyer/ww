@@ -126,10 +126,21 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "NetBSD")
 	target_link_libraries (ww kvm)
 
 	if (NOT LIBKVM)
-		message (FATAL_ERROR "NCurses is required for "
+		message (FATAL_ERROR "libkvm is required for "
 		    "${CMAKE_PROJECT_NAME}")
 	endif (NOT LIBKVM)
 endif (${CMAKE_SYSTEM_NAME} MATCHES "NetBSD")
+
+if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+
+	find_library (LIBPROC "proc")
+	target_link_libraries (ww proc)
+
+	if (NOT LIBPROC)
+		message (FATAL_ERROR "libproc is required for "
+		    "${CMAKE_PROJECT_NAME}")
+	endif (NOT LIBPROC)
+endif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 target_link_libraries (ww glib-2.0 gobject-2.0 gnt ncurses panel)
 

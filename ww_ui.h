@@ -30,15 +30,15 @@ SUCH DAMAGE.
 #ifndef WW_UI_H
 #define WW_UI_H
 
+#include "portable_info.h"
+#include "ww_config.h"
+
 #include <gnt.h>
 #include <gntws.h>
 #include <gntwm.h>
 #include <gntwindow.h>
 #include <gntbutton.h>
 #include <gntlabel.h>
-
-#include "portable_info.h"
-#include "ww_config.h"
 
 #define SEC_DAY 86400
 #define SEC_HOUR 3600
