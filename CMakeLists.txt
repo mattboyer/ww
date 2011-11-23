@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.6)
 project (WW)
 set (WW_VERSION_MAJOR 0)
-set (WW_VERSION_MINOR 1)
+set (WW_VERSION_MINOR 10)
 
 configure_file ("${PROJECT_SOURCE_DIR}/ww_config.h.in"
     "${PROJECT_BINARY_DIR}/ww_config.h")

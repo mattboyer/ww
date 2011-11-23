@@ -1,0 +1,15 @@
+version 0.10    (2011/11/23):
+	* Improve use of horizontal space in info boxes 	
+	* Columns should not be narrower than their titles. 	
+	* Linux support 	
+	* Use a sysconf param instead of a hardcoded value 	
+	* Make better use of horizontal space in tree columns 	
+	* gid_t and gpointer may not be the same size! 	
+	* Use GINT_TO_POINTER to convert integer types into sensible indices
+	  for GHashTables 	
+	* Syntax fixes for CMakeLists.txt 	
+	* Check for libkvm on NetBSD 	
+	* Slightly better README 	
+	* Detection of a session's Most Interesting Process on Solaris 	
+	* The gecos field may comprise several fields separated by commas.
+	  Split accordingly. 	

@@ -18,6 +18,15 @@ Interface (TUI) widgets, windowing and window management facilities. GNT is
 currently maintained as part of the Pidgin Instant Messaging client for GNOME
 desktops (http://pidgin.im/).
 
+COMPATIBILITY
+=============
+
+WW has been tested on the following OS/Platform combinations:
+* Solaris 11 (main dev platform)  / x86
+* Solaris 10                      / SPARCv9
+* NetBSD 5.1                      / AMD64
+* Linux (Ubuntu Maverick Meerkat) / VirtualBox VM
+
 DEPENDENCIES
 ============
 
@@ -31,7 +40,7 @@ WW has dependencies against:
                 | gobject-2.0
                 | gthread-2.0
 
-        libkvm on BSD operating systems
+        libkvm on NetBSD
 
         CMake   - CMake is only required for building WW
 
@@ -64,3 +73,12 @@ When running WW inside a terminal emulator, it is advisable to use a window at
 least 110 columns wide and 30 rows high.
 
 You can exit WW by pressing Ctrl-c of Alt-q from within WW.
+
+ROADMAP
+=======
+
+* Support for FreeBSD v9 and higher
+* Support for OpenBSD
+* Ability to view information pertaining to to a remote session's endpoint 
+* Multiple session sorting options
+* Dynamic refresh of the data displayed
