@@ -166,6 +166,25 @@ void setup_ui(struct status* st) {
 
 	gnt_widget_show(utmp_window);
 
+	/* Until I understand GNT's layout algorithm better, this will
+	 * be necessary to ensure that the left-most info box isn't squished
+	 * beyond recognition by its neighbors to the right.
+	 */
+	int host_box_width, host_box_height;
+	int user_box_width, user_box_height;
+
+	gnt_widget_get_size(GNT_WIDGET(host_info_box), &host_box_width,
+	    &host_box_height);
+	gnt_widget_get_size(GNT_WIDGET(user_info_box), &user_box_width,
+	    &user_box_height);
+
+	gnt_widget_set_size(GNT_WIDGET(host_info_box), ceil((host_box_width + 
+	    user_box_width) / 2), host_box_height);
+
+	gnt_widget_set_size(GNT_WIDGET(user_info_box), ceil((host_box_width + 
+	    user_box_width) / 2), user_box_height);
+	gnt_box_readjust(GNT_BOX(utmp_window));
+
 	st->widgets->window=GNT_WINDOW(utmp_window);
 	st->widgets->utmp_tree=GNT_TREE(tree);
 	st->widgets->host_text=GNT_TEXT_VIEW(host_info_text);

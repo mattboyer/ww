@@ -142,6 +142,6 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	endif (NOT LIBPROC)
 endif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
-target_link_libraries (ww glib-2.0 gobject-2.0 gnt ncurses panel)
+target_link_libraries (ww glib-2.0 gobject-2.0 gnt ncurses panel m)
 
 # vim:set tabstop=8 softtabstop=8 shiftwidth=8 noexpandtab list:

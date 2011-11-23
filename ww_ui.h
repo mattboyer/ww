@@ -33,6 +33,8 @@ SUCH DAMAGE.
 #include "portable_info.h"
 #include "ww_config.h"
 
+#include <math.h>
+
 #include <gnt.h>
 #include <gntws.h>
 #include <gntwm.h>
