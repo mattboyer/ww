@@ -28,6 +28,7 @@ SUCH DAMAGE.
 */
 
 #include "ww_ui.h"
+const char* column_titles[]={COLUMN_TITLES};
 
 void display_user_info(GntWidget* originator, gpointer old, gpointer current,
     struct status* status) {
@@ -265,6 +266,12 @@ void populate_tree(struct status* st, char** keys) {
 
 	/* Prepare an array to determine the max width of each column */
 	size_t* max_widths = calloc(NUM_COLUMNS, sizeof(size_t));
+	unsigned int title_idx;
+	for(title_idx=0; title_idx<NUM_COLUMNS; title_idx++) {
+		update_max_width((char*) column_titles[title_idx],
+		    max_widths+title_idx);
+	}
+
 	GHashTableIter session_iterator;
 	gpointer index, value;
 	g_hash_table_iter_init(&session_iterator, st->sessions);
