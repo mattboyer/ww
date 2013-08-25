@@ -25,17 +25,15 @@ WW has been tested on the following OS/Platform combinations:
 
 WW has dependencies against:
 
-* gnt     - gnt's presence should ensure that the following dependencies
-                | common to WW and gnt are satisfied.
-                | ---
-                | ncurses
-                | glib-2.0
-                | gobject-2.0
-                | gthread-2.0
+* gnt - gnt's presence should ensure that the following dependencies common to WW and gnt are satisfied:
+    - ncurses
+    - glib-2.0
+    - gobject-2.0
+    - gthread-2.0
 
 * libkvm on NetBSD
 
-* CMake   - CMake is only required for building WW
+* CMake - CMake is only required for building WW
 
 ##Build instructions
 
@@ -59,6 +57,3 @@ implementations of make.
 ##Contact
 
 Please send bug reports to `mboyer <AT> sdf <DOT> org`.
-
-[![githalytics.com alpha](https://cruel-carlota.pagodabox.com/2cd433a32cf0bbba89a7470120fb1d44 "githalytics.com")](http://githalytics.com/mattboyer/optenum)
-
